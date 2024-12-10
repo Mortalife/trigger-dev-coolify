@@ -1,0 +1,157 @@
+services:
+  webapp:
+    image: 'ghcr.io/triggerdotdev/trigger.dev:v3'
+    environment:
+      - SERVICE_FQDN_TRIGGER_3030
+      - 'RESEND_API_KEY=${RESEND_API_KEY}'
+      - 'LOGIN_ORIGIN=${SERVICE_FQDN_TRIGGER}'
+      - 'APP_ORIGIN=${SERVICE_FQDN_TRIGGER}'
+      - 'DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_TRIGGER}/otel'
+      - PORT=3030
+      - 'POSTGRES_DB=${POSTGRES_DB:-postgres}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_64_POSTGRES}'
+      - 'POSTGRES_PORT=${POSTGRES_PORT:-5432}'
+      - 'POSTGRES_USER=${POSTGRES_USER:-postgres}'
+      - 'DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}'
+      - 'DIRECT_URL=postgresql://${POSTGRES_USER:-postgres}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}'
+      - REMIX_APP_PORT=3030
+      - NODE_ENV=production
+      - RUNTIME_PLATFORM=docker-compose
+      - V3_ENABLED=true
+      - TRIGGER_TELEMETRY_DISABLED=1
+      - INTERNAL_OTEL_TRACE_DISABLED=1
+      - INTERNAL_OTEL_TRACE_LOGGING_ENABLED=0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_TLS_DISABLED=true
+      - 'WHITELISTED_EMAILS=${WHITELISTED_EMAILS:-authorized@yahoo\.com|authorized@gmail\.com}'
+      - 'ADMIN_EMAILS=${ADMIN_EMAILS:-admin@example\.com|another-admin@example\.com}'
+      - 'FROM_EMAIL=${FROM_EMAIL:-admin@example.com}'
+      - 'REPLY_TO_EMAIL=${REPLY_TO_EMAIL:-admin@example.com}'
+      - 'DEFAULT_ORG_EXECUTION_CONCURRENCY_LIMIT=${DEFAULT_ORG_EXECUTION_CONCURRENCY_LIMIT:-300}'
+      - 'DEFAULT_ENV_EXECUTION_CONCURRENCY_LIMIT=${DEFAULT_ENV_EXECUTION_CONCURRENCY_LIMIT:-100}'
+      - 'MAGIC_LINK_SECRET=${SERVICE_BASE64_MAGICLINK}'
+      - 'SESSION_SECRET=${SERVICE_BASE64_SESSION}'
+      - 'ENCRYPTION_KEY=${SERVICE_BASE64_ENCRYPTION}'
+      - 'PROVIDER_SECRET=${SERVICE_PASSWORD_64_PROVIDER}'
+      - 'COORDINATOR_SECRET=${SERVICE_PASSWORD_64_COORDINATOR}'
+      - 'DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST:-docker.io}'
+      - 'DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
+      - 'HTTP_SERVER_PORT=${HTTP_SERVER_PORT:-9020}'
+      - 'COORDINATOR_PORT=${HTTP_SERVER_PORT:-9020}'
+      - 'ELECTRIC_ORIGIN=http://electric:3000'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - '-e'
+        - "require('http').get('http://127.0.0.1:3030/healthcheck', (r) => {if (r.statusCode !== 200) process.exit(1); else process.exit(0); }).on('error', () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+  postgres:
+    image: 'postgres:16'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U postgres'
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data/'
+    environment:
+      - 'POSTGRES_DB=${POSTGRES_DB:-postgres}'
+      - POSTGRES_PASSWORD=$SERVICE_PASSWORD_64_POSTGRES
+      - 'POSTGRES_PORT=${POSTGRES_PORT:-5432}'
+      - 'POSTGRES_USER=${POSTGRES_USER:-postgres}'
+    command:
+      - '-c'
+      - wal_level=logical
+  redis:
+    image: 'redis:7'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'redis-cli ping | grep PONG'
+      interval: 1s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - 'redis-data:/data'
+  docker-provider:
+    image: 'ghcr.io/triggerdotdev/provider/docker:v3'
+    restart: unless-stopped
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    user: root
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - '-e'
+        - "require('http').get('http://127.0.0.1:9020/health', (r) => {if (r.statusCode !== 200) process.exit(1); else process.exit(0); }).on('error', () => process.exit(1))"
+      interval: 5s
+    depends_on:
+      - webapp
+    environment:
+      - PLATFORM_HOST=webapp
+      - PLATFORM_WS_PORT=3030
+      - SECURE_CONNECTION=false
+      - 'OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_TRIGGER}/otel'
+      - 'PLATFORM_SECRET=${SERVICE_PASSWORD_64_PROVIDER}'
+      - 'REGISTRY_HOST=${DEPLOY_REGISTRY_HOST:-docker.io}'
+      - 'REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
+      - 'FORCE_CHECKPOINT_SIMULATION=${FORCE_CHECKPOINT_SIMULATION:-0}'
+      - 'HTTP_SERVER_PORT=${HTTP_SERVER_PORT:-9020}'
+      - 'COORDINATOR_PORT=${HTTP_SERVER_PORT:-9020}'
+      - ENFORCE_MACHINE_PRESETS=true
+  coordinator:
+    image: 'ghcr.io/triggerdotdev/coordinator:v3'
+    restart: unless-stopped
+    user: root
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - '-e'
+        - "require('http').get('http://127.0.0.1:${HTTP_SERVER_PORT:-9020}/health', (r) => {if (r.statusCode !== 200) process.exit(1); else process.exit(0); }).on('error', () => process.exit(1))"
+      interval: 5s
+    ports:
+      - '127.0.0.1:9020:9020'
+    depends_on:
+      - webapp
+    environment:
+      - PLATFORM_HOST=webapp
+      - PLATFORM_WS_PORT=3030
+      - SECURE_CONNECTION=false
+      - 'OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_TRIGGER}/otel'
+      - 'PLATFORM_SECRET=${SERVICE_PASSWORD_64_COORDINATOR}'
+      - 'HTTP_SERVER_PORT=${HTTP_SERVER_PORT:-9020}'
+      - 'COORDINATOR_HOST=${COORDINATOR_HOST:-127.0.0.1}'
+      - 'COORDINATOR_PORT=${HTTP_SERVER_PORT:-9020}'
+      - 'REGISTRY_HOST=${DEPLOY_REGISTRY_HOST:-docker.io}'
+      - 'REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
+      - 'FORCE_CHECKPOINT_SIMULATION=${FORCE_CHECKPOINT_SIMULATION:-0}'
+  electric:
+    image: 'electricsql/electric:latest'
+    restart: '${RESTART_POLICY:-unless-stopped}'
+    environment:
+      - 'DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}?sslmode=disable'
+    healthcheck:
+      test: 'curl --fail http://127.0.0.1:3000/v1/health || exit 1'
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+    depends_on:
+      - postgres
