@@ -65,10 +65,9 @@ This repository contains a docker-compose that runs trigger.dev on coolify, with
 
 ![Deployed into Docker hub](image-6.png)
 18. Once complete, test running a prod trigger.
-    In the dashboard, click **Test**, select the Prod environment, select your hello world example, click "Run test" or `CTRL+ENTER`
-
-    It may take a few seconds to start as it has to pull the image from docker.
-
-    ![Profit](image-5.png)
+   In the dashboard, click **Test**, select the Prod environment, select your hello world example, click "Run test" or `CTRL+ENTER` 
+    
+   It may take a few seconds to start as it has to pull the image from docker.
+   ![Profit](image-5.png)
 
 19. Profit
