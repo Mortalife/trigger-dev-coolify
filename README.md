@@ -38,31 +38,37 @@ This repository contains a docker-compose that runs trigger.dev on coolify, with
     If you already have an account setup either logout or create a new profile
 
     `npx trigger.dev@latest login --profile test -a https://trigger-asdasdasdswg234sd.yourdomain.com`
+    
     This commands creates a new profile called test, omit `--profile test` if you don't use another account
 
     `npx trigger.dev@latest init --profile test -p proj_lfcmieiznpxlcgkifdyj -a https://trigger-asdasdasdswg234sd.yourdomain.com`
+    
     This command is the one you're given in the image above, but it also includes a profile, if you're not using profiles feel free to copy from the dashboard.
 
     If you're following along just select the `hello-world` example.
 
-    `trigger.dev@latest dev --profile dev`
+    `npx trigger.dev@latest dev --profile test`
+    
     Run your dev server
 
-13. Test running a dev trigger
+14. Test running a dev trigger
     In the dashboard, click **Test**, select your hello world example, click "Run test" or `CTRL+ENTER`
     You should now see it running in your dev console
 
-14. Ensure you're logged into docker on your dev machine.
+15. Ensure you're logged into docker on your dev machine.
     Run `docker login` and login with the same credentials as before.
 
-15. Deploy your tasks to docker hub
-    Run the deploy command `npx trigger.dev@latest deploy --profile test --self-hosted --push`
+16. Deploy your tasks to docker hub
+    Run the deploy command
+
+    `npx trigger.dev@latest deploy --profile test --self-hosted --push`
+
 ![Deployed into Docker hub](image-6.png)
-16. Once complete, test running a prod trigger.
+18. Once complete, test running a prod trigger.
     In the dashboard, click **Test**, select the Prod environment, select your hello world example, click "Run test" or `CTRL+ENTER`
 
     It may take a few seconds to start as it has to pull the image from docker.
 
     ![Profit](image-5.png)
 
-17. Profit
+19. Profit
