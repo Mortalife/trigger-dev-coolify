@@ -147,6 +147,7 @@ services:
     restart: '${RESTART_POLICY:-unless-stopped}'
     environment:
       - 'DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}?sslmode=disable'
+      - ELECTRIC_INSECURE=true
     healthcheck:
       test: 'curl --fail http://127.0.0.1:3000/v1/health || exit 1'
       interval: 10s
